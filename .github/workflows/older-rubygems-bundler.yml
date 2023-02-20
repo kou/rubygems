@@ -44,7 +44,7 @@ jobs:
           path: bundler/tmp/rubygems
           ref: ${{ matrix.rgv.value }}
       - name: Setup ruby
-        uses: ruby/setup-ruby@ee2113536afb7f793eed4ce60e8d3b26db912da4 # v1.127.0
+        uses: ruby/setup-ruby@d3c9825d67b0d8720afdfdde5af56c79fdb38d16 # v1.138.0
         with:
           ruby-version: ${{ matrix.ruby.value }}
           bundler: none
