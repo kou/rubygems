@@ -45,6 +45,8 @@ module Bundler
 
       say spec.post_install_message unless spec.post_install_message.nil?
 
+      load_plugin
+
       run_post_install_hooks
 
       spec
@@ -81,6 +83,21 @@ module Bundler
       else
         regenerate_plugins_for(spec, @plugins_dir)
       end
+    end
+
+    def load_plugin
+      existing_specs = Gem::Specification.stubs_for(spec.name)
+      # If any other version already exists, this plugin isn't loaded
+      # immediately. It's for avoiding a case that multiple versions
+      # are loaded at the same time.
+      return unless existing_specs.empty?
+
+      return if spec.plugins.empty?
+
+      plugin_files = spec.plugins.map do |plugin|
+        File.join(@plugins_dir, "#{spec.name}_plugin#{File.extname(plugin)}")
+      end
+      Gem.load_plugin_files(plugin_files)
     end
 
     if Bundler.rubygems.provides?("< 3.5.19")
