@@ -33,9 +33,19 @@ RSpec.describe "bundle install with install-time dependencies" do
       build_gem "net_a" do |s|
         s.add_dependency "net_b"
         s.add_dependency "net_build_extensions"
+        s.write "lib/rubygems_plugin.rb", <<-RUBY
+          require "net_b"
+          require "net_a"
+          puts "plugin-executed: net_a"
+        RUBY
       end
 
-      build_gem "net_b"
+      build_gem "net_b" do |s|
+        s.write "lib/rubygems_plugin.rb", <<-RUBY
+          require "net_b"
+          puts "plugin-executed: net_b"
+        RUBY
+      end
 
       build_gem "net_build_extensions" do |s|
         s.add_dependency "rake"
@@ -54,12 +64,29 @@ RSpec.describe "bundle install with install-time dependencies" do
       build_gem "net_c" do |s|
         s.add_dependency "net_a"
         s.add_dependency "net_d"
+        s.write "lib/rubygems_plugin.rb", <<-RUBY
+          require "net_b"
+          require "net_a"
+          require "net_d"
+          require "net_c"
+          puts "plugin-executed: net_c"
+        RUBY
       end
 
-      build_gem "net_d"
+      build_gem "net_d" do |s|
+        s.write "lib/rubygems_plugin.rb", <<-RUBY
+          require "net_d"
+          puts "plugin-executed: net_d"
+        RUBY
+      end
 
       build_gem "net_e" do |s|
         s.add_dependency "net_d"
+        s.write "lib/rubygems_plugin.rb", <<-RUBY
+          require "net_d"
+          require "net_e"
+          puts "plugin-executed: net_e"
+        RUBY
       end
     end
   end
@@ -128,6 +155,7 @@ RSpec.describe "bundle install with install-time dependencies" do
         source "https://gem.repo2"
         gem "net_b"
       G
+      expect(out.scan(/^plugin-executed: (.+)/).flatten).to eq(["net_b"])
 
       expect(the_bundle).to include_gems "net_b 1.0"
     end
@@ -137,6 +165,7 @@ RSpec.describe "bundle install with install-time dependencies" do
         source "https://gem.repo2"
         gem "net_a"
       G
+      expect(out.scan(/^plugin-executed: (.+)/).flatten).to eq(["net_b", "net_a"])
 
       expect(the_bundle).to include_gems "net_a 1.0", "net_b 1.0"
     end
@@ -147,6 +176,15 @@ RSpec.describe "bundle install with install-time dependencies" do
         gem "net_c"
         gem "net_e"
       G
+      # * net_c depends on net_a and net_d
+      # * net_a depends on net_b
+      # * net_e depends on net_d
+      executeds = out.scan(/^plugin-executed: (.+)/).flatten
+      expect(executeds).to contain_exactly("net_a", "net_b", "net_c", "net_d", "net_e")
+      expect(executeds.index("net_c")).to be > executeds.index("net_a")
+      expect(executeds.index("net_c")).to be > executeds.index("net_d")
+      expect(executeds.index("net_a")).to be > executeds.index("net_b")
+      expect(executeds.index("net_e")).to be > executeds.index("net_d")
 
       expect(the_bundle).to include_gems "net_a 1.0", "net_b 1.0", "net_c 1.0", "net_d 1.0", "net_e 1.0"
     end
